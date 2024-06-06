@@ -126,7 +126,6 @@ func handleNew(cmd *flag.FlagSet) {
 	}
 
 	channelId := cmd.Arg(0)
-	fmt.Printf("Check new video on channel %s\n", channelId)
 
 	videos, err := getVideoList(channelId)
 	if err != nil {
@@ -149,8 +148,6 @@ func handleNew(cmd *flag.FlagSet) {
 }
 
 func DownloadVideo(videoNo int) error {
-	fmt.Printf("Download [%d]\n", videoNo)
-
 	info, err := getVideoInfo(videoNo)
 	if err != nil {
 		return err
@@ -159,21 +156,19 @@ func DownloadVideo(videoNo int) error {
 	if err != nil {
 		return err
 	}
-	outputName := fmt.Sprintf("%s %s.mp4", date, info.Title)
+	outputName := sanitizeFileName(fmt.Sprintf("%s %s.mp4", date, info.Title))
 
 	dashUrl, err := getDashUrl(videoNo)
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("dash url: %s\n", dashUrl)
-
 	videoUrl, err := getVideoUrl(dashUrl)
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("video url: %s\n", videoUrl)
+	fmt.Printf("%s\n%s\n", videoUrl, outputName)
 
 	cmd := exec.Command("axel", "-n", "8", "-o", outputName, videoUrl)
 	cmd.Stdout = os.Stdout
