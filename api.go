@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"slices"
 	"strconv"
 
 	"github.com/antchfx/xmlquery"
@@ -77,6 +78,7 @@ func getVideoList(channelId string) ([]VideoData, error) {
 		totalPages = data.Content.TotalPages
 	}
 
+	slices.Reverse(videoList)
 	return videoList, nil
 }
 
