@@ -15,6 +15,11 @@ func main() {
 	downloadCmd := flag.NewFlagSet("download", flag.ExitOnError)
 	newCmd := flag.NewFlagSet("new", flag.ExitOnError)
 
+	err := LoadSession()
+	if err != nil {
+		log.Printf("error while loading session: %s\n", err)
+	}
+
 	if len(os.Args) < 2 {
 		printHelp()
 		return
@@ -112,7 +117,10 @@ func handleDownload(downloadCmd *flag.FlagSet) {
 		log.Fatal(err)
 	}
 
-	DownloadVideo(videoNo)
+	err = DownloadVideo(videoNo)
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 func handleNew(cmd *flag.FlagSet) {

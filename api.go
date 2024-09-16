@@ -165,7 +165,11 @@ func Get(url string) (*http.Response, error) {
 	if err != nil {
 		return nil, err
 	}
+	
 	req.Header.Add("User-Agent", "Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Mobile/15E148 Safari/604.1")
+	if sessionLoadSuccess {
+		req.Header.Add("Cookie", session)
+	}
 
 	return http.DefaultClient.Do(req)
 }
