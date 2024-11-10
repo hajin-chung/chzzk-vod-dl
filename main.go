@@ -15,14 +15,14 @@ func main() {
 	downloadCmd := flag.NewFlagSet("download", flag.ExitOnError)
 	newCmd := flag.NewFlagSet("new", flag.ExitOnError)
 
-	err := LoadSession()
-	if err != nil {
-		log.Printf("error while loading session: %s\n", err)
-	}
-
 	if len(os.Args) < 2 {
 		printHelp()
 		return
+	}
+
+	err := LoadSession()
+	if err != nil {
+		log.Printf("error while loading session: %s\n", err)
 	}
 
 	switch os.Args[1] {
