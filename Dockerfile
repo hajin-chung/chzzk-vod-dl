@@ -7,4 +7,4 @@ COPY ./go.* ./
 RUN go build -o cvd .
 RUN apt-get update && apt-get install -y axel
 
-ENTRYPOINT ["./app/cvd"]
+ENTRYPOINT ["./cvd"]
