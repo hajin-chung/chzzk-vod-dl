@@ -23,3 +23,4 @@ RUN echo "0 3 * * * /usr/local/bin/cvd >> /var/log/cvd.log 2>&1" > /etc/crontabs
 VOLUME /var/log
 
 CMD ["crond", "-l", "2"]
+CMD ["/bin/sh"]
