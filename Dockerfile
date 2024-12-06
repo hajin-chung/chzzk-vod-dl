@@ -23,4 +23,4 @@ RUN echo "0 3 * * * /usr/local/bin/cvd new a02dc370efd2befeac97881dc83f11bb >> /
 VOLUME /var/log
 
 CMD ["crond", "-l", "2"]
-ENTRYPOINT ["/bin/sh"]
+CMD ["/bin/sh"]
