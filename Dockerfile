@@ -19,7 +19,7 @@ COPY --from=builder /app/cvd /usr/local/bin/cvd
 RUN chmod +x /usr/local/bin/cvd
 WORKDIR /app
 RUN mkdir etc vod
-RUN echo "0 3 * * * /usr/local/bin/cvd >> /var/log/cvd.log 2>&1" > /etc/crontabs/root
+RUN echo "0 4 * * * /usr/local/bin/cvd >> /var/log/cvd.log 2>&1" > /etc/crontabs/root
 VOLUME /var/log
 
-CMD ["crond", "-f", "-l", "2"]
+CMD ["crond", "-n", "-L", "2"]
