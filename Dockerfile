@@ -14,12 +14,12 @@ RUN apk add --no-cache axel tzdata dcron bash
 
 ENV TZ=Asia/Seoul
 RUN cp /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
-COPY --from=builder /app/myapp /usr/local/bin/myapp
+COPY --from=builder /app/cvd /usr/local/bin/cvd
 
-RUN chmod +x /usr/local/bin/myapp
+RUN chmod +x /usr/local/bin/cvd
 WORKDIR /app
 RUN mkdir etc vod
-RUN echo "0 3 * * * /usr/local/bin/myapp >> /var/log/myapp.log 2>&1" > /etc/crontabs/root
+RUN echo "0 3 * * * /usr/local/bin/cvd >> /var/log/cvd.log 2>&1" > /etc/crontabs/root
 VOLUME /var/log
 
 CMD ["crond", "-f", "-l", "2"]
