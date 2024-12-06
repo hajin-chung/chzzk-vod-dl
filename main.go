@@ -1,7 +1,6 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -10,30 +9,26 @@ import (
 )
 
 func main() {
-	listCmd := flag.NewFlagSet("list", flag.ExitOnError)
-	infoCmd := flag.NewFlagSet("info", flag.ExitOnError)
-	downloadCmd := flag.NewFlagSet("download", flag.ExitOnError)
-	newCmd := flag.NewFlagSet("new", flag.ExitOnError)
-
 	if len(os.Args) < 2 {
 		printHelp()
 		return
 	}
-
+	
 	err := LoadSession()
 	if err != nil {
 		log.Printf("error while loading session: %s\n", err)
 	}
 
-	switch os.Args[1] {
+	cmd := os.Args[1]
+	switch cmd {
 	case "list":
-		handleList(listCmd)
+		handleList()
 	case "info":
-		handleInfo(infoCmd)
+		handleInfo()
 	case "download":
-		handleDownload(downloadCmd)
+		handleDownload()
 	case "new":
-		handleNew(newCmd)
+		handleNew()
 	default:
 		printHelp()
 	}
@@ -48,16 +43,12 @@ func printHelp() {
 	fmt.Println("  cvd new <channel id>")
 }
 
-func handleList(listCmd *flag.FlagSet) {
-	if err := listCmd.Parse(os.Args[2:]); err != nil {
+func handleList() {
+	if len(os.Args) < 3 {
 		fmt.Println("Failed to parse list command")
 		os.Exit(1)
 	}
-	if listCmd.NArg() != 1 {
-		fmt.Println("You must provide a channel id")
-		os.Exit(1)
-	}
-	channelId := listCmd.Arg(0)
+	channelId := os.Args[2]
 	fmt.Printf("Video list [%s]\n", channelId)
 
 	videos, err := getVideoList(channelId)
@@ -74,17 +65,12 @@ func handleList(listCmd *flag.FlagSet) {
 	}
 }
 
-func handleInfo(infoCmd *flag.FlagSet) {
-	if err := infoCmd.Parse(os.Args[2:]); err != nil {
-		fmt.Println("Failed to parse info command")
+func handleInfo() {
+	if len(os.Args) < 3 {
+		fmt.Println("Failed to parse list command")
 		os.Exit(1)
 	}
-	if infoCmd.NArg() != 1 {
-		fmt.Println("You must provide a video number")
-		os.Exit(1)
-	}
-
-	videoNo, err := strconv.Atoi(infoCmd.Arg(0))
+	videoNo, err := strconv.Atoi(os.Args[2])
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -102,17 +88,12 @@ func handleInfo(infoCmd *flag.FlagSet) {
 	fmt.Printf("%-8d %10s %s\n", info.VideoNo, date, info.Title)
 }
 
-func handleDownload(downloadCmd *flag.FlagSet) {
-	if err := downloadCmd.Parse(os.Args[2:]); err != nil {
-		fmt.Println("Failed to parse download command")
+func handleDownload() {
+	if len(os.Args) < 3 {
+		fmt.Println("Failed to parse list command")
 		os.Exit(1)
 	}
-	if downloadCmd.NArg() != 1 {
-		fmt.Println("You must provide a video number")
-		os.Exit(1)
-	}
-
-	videoNo, err := strconv.Atoi(downloadCmd.Arg(0))
+	videoNo, err := strconv.Atoi(os.Args[2])
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -123,17 +104,12 @@ func handleDownload(downloadCmd *flag.FlagSet) {
 	}
 }
 
-func handleNew(cmd *flag.FlagSet) {
-	if err := cmd.Parse(os.Args[2:]); err != nil {
-		fmt.Println("Failed to parse new command")
+func handleNew() {
+	if len(os.Args) < 3 {
+		fmt.Println("Failed to parse list command")
 		os.Exit(1)
 	}
-	if cmd.NArg() != 1 {
-		fmt.Println("You must provide a channelId")
-		os.Exit(1)
-	}
-
-	channelId := cmd.Arg(0)
+	channelId := os.Args[2]
 
 	videos, err := getVideoList(channelId)
 	if err != nil {
@@ -155,7 +131,7 @@ func handleNew(cmd *flag.FlagSet) {
 	}
 }
 
-func DownloadVideo(videoNo int) error {
+func DownloadVideo(videoNo int, args ...string) error {
 	info, err := getVideoInfo(videoNo)
 	if err != nil {
 		return err
@@ -178,7 +154,9 @@ func DownloadVideo(videoNo int) error {
 
 	fmt.Printf("%s\n%s\n", videoUrl, outputName)
 
-	cmd := exec.Command("axel", "-n", "8", "-o", outputName, videoUrl)
+	command := []string{"-n", "8", "-o", outputName, videoUrl}
+	command = append(command, args...)
+	cmd := exec.Command("axel", command...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
