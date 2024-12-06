@@ -10,7 +10,7 @@ RUN go build -o cvd .
 # ===== Stage 2: Create the runtime image =====
 FROM alpine:3.18
 
-RUN apk add --no-cache axel tzdata dcron bash
+RUN apk add --no-cache axel tzdata cronie bash
 
 ENV TZ=Asia/Seoul
 RUN cp /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
