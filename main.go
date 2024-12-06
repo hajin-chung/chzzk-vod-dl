@@ -140,7 +140,7 @@ func DownloadVideo(videoNo int, args ...string) error {
 	if err != nil {
 		return err
 	}
-	outputName := sanitizeFileName(fmt.Sprintf("%s %s.mp4", date, info.Title))
+	outputName := sanitizeFileName(fmt.Sprintf("/vod/%s %s.mp4", date, info.Title))
 
 	dashUrl, err := getDashUrl(videoNo)
 	if err != nil {

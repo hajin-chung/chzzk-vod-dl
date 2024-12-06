@@ -9,7 +9,7 @@ var session string = ""
 var sessionLoadSuccess bool = false
 
 func LoadSession() error {
-	bytes, err := os.ReadFile("./session.txt")
+	bytes, err := os.ReadFile("etc/session.txt")
 	if err != nil {
 		return err
 	}

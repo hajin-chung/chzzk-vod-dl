@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-const memoPath = "numbers.txt"
+const memoPath = "etc/numbers.txt"
 var memo []int
 
 func ParseMemo() ([]int, error) {
