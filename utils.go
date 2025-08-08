@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-func formatDate(rawDate string) (string, error) {
+func FormatDate(rawDate string) (string, error) {
 	date, err := time.Parse("2006-01-02 15:04:05", rawDate)
 	if err != nil {
 		return "", err
@@ -14,7 +14,7 @@ func formatDate(rawDate string) (string, error) {
 	return date.Format("06.01.02"), nil
 }
 
-func sanitizeFileName(name string) string {
+func SanitizeFileName(name string) string {
 	sanitized := name
 	for _, char := range strings.Split(`\/:*?"<>|`, "") {
 		sanitized = strings.ReplaceAll(sanitized, char, "")

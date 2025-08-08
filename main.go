@@ -10,7 +10,7 @@ import (
 
 func main() {
 	if len(os.Args) < 2 {
-		printHelp()
+		PrintHelp()
 		return
 	}
 	
@@ -22,19 +22,19 @@ func main() {
 	cmd := os.Args[1]
 	switch cmd {
 	case "list":
-		handleList()
+		HandleList()
 	case "info":
-		handleInfo()
+		HandleInfo()
 	case "download":
-		handleDownload()
+		HandleDownload()
 	case "new":
-		handleNew()
+		HandleNew()
 	default:
-		printHelp()
+		PrintHelp()
 	}
 }
 
-func printHelp() {
+func PrintHelp() {
 	fmt.Println("cvd [Chzzk VOD Downloader]")
 	fmt.Println("Usage:")
 	fmt.Println("  cvd list <channel id>")
@@ -43,7 +43,7 @@ func printHelp() {
 	fmt.Println("  cvd new <channel id>")
 }
 
-func handleList() {
+func HandleList() {
 	if len(os.Args) < 3 {
 		fmt.Println("Failed to parse list command")
 		os.Exit(1)
@@ -51,13 +51,13 @@ func handleList() {
 	channelId := os.Args[2]
 	fmt.Printf("Video list [%s]\n", channelId)
 
-	videos, err := getVideoList(channelId)
+	videos, err := GetVideoList(channelId)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	for _, video := range videos {
-		date, err := formatDate(video.Date)
+		date, err := FormatDate(video.Date)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -65,7 +65,7 @@ func handleList() {
 	}
 }
 
-func handleInfo() {
+func HandleInfo() {
 	if len(os.Args) < 3 {
 		fmt.Println("Failed to parse list command")
 		os.Exit(1)
@@ -76,19 +76,19 @@ func handleInfo() {
 	}
 	fmt.Printf("Info [%d]\n", videoNo)
 
-	info, err := getVideoInfo(videoNo)
+	info, err := GetVideoInfo(videoNo)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	date, err := formatDate(info.Date)
+	date, err := FormatDate(info.Date)
 	if err != nil {
 		log.Fatal(err)
 	}
 	fmt.Printf("%-8d %10s %s\n", info.VideoNo, date, info.Title)
 }
 
-func handleDownload() {
+func HandleDownload() {
 	if len(os.Args) < 3 {
 		fmt.Println("Failed to parse list command")
 		os.Exit(1)
@@ -104,14 +104,14 @@ func handleDownload() {
 	}
 }
 
-func handleNew() {
+func HandleNew() {
 	if len(os.Args) < 3 {
 		fmt.Println("Failed to parse list command")
 		os.Exit(1)
 	}
 	channelId := os.Args[2]
 
-	videos, err := getVideoList(channelId)
+	videos, err := GetVideoList(channelId)
 	if err != nil {
 		log.Panic(err)
 	}
@@ -132,22 +132,22 @@ func handleNew() {
 }
 
 func DownloadVideo(videoNo int, args ...string) error {
-	info, err := getVideoInfo(videoNo)
+	info, err := GetVideoInfo(videoNo)
 	if err != nil {
 		return err
 	}
-	date, err := formatDate(info.Date)
+	date, err := FormatDate(info.Date)
 	if err != nil {
 		return err
 	}
-	outputName := "vod/"+sanitizeFileName(fmt.Sprintf("%s %s.mp4", date, info.Title))
+	outputName := "vod/"+SanitizeFileName(fmt.Sprintf("%s %s.mp4", date, info.Title))
 
-	dashUrl, err := getDashUrl(videoNo)
+	dashUrl, err := GetDashUrl(videoNo)
 	if err != nil {
 		return err
 	}
 
-	videoUrl, err := getVideoUrl(dashUrl)
+	videoUrl, err := GetVideoUrl(dashUrl)
 	if err != nil {
 		return err
 	}

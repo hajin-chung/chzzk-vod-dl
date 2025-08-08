@@ -23,7 +23,7 @@ type VideoDataRes struct {
 	Content VideoData `json:"content"`
 }
 
-func getVideoInfo(videoNo int) (*VideoData, error) {
+func GetVideoInfo(videoNo int) (*VideoData, error) {
 	url := fmt.Sprintf("https://api.chzzk.naver.com/service/v2/videos/%d", videoNo)
 	res, err := Get(url)
 	if err != nil {
@@ -54,7 +54,7 @@ type VideoListRes struct {
 	Content VideoListContent `json:"content"`
 }
 
-func getVideoList(channelId string) ([]VideoData, error) {
+func GetVideoList(channelId string) ([]VideoData, error) {
 	totalPages := 1
 	videoList := []VideoData{}
 	for page := 0; page < totalPages; page++ {
@@ -93,7 +93,7 @@ type VideoContent struct {
 	VideoId string `json:"videoId"`
 }
 
-func getDashUrl(videoNo int) (string, error) {
+func GetDashUrl(videoNo int) (string, error) {
 	url := fmt.Sprintf("https://api.chzzk.naver.com/service/v2/videos/%d", videoNo)
 	res, err := Get(url)
 	if err != nil {
@@ -115,7 +115,7 @@ func getDashUrl(videoNo int) (string, error) {
 	return dashUrl, nil
 }
 
-func getVideoUrl(dashUrl string) (string, error) {
+func GetVideoUrl(dashUrl string) (string, error) {
 	req, err := http.NewRequest("GET", dashUrl, nil)
 	if err != nil {
 		return "", err

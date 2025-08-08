@@ -43,7 +43,7 @@ func AddMemo(videoNumber int) error {
 	}
 	defer file.Close()
 
-	_, err = file.WriteString(fmt.Sprintf("%d\n", videoNumber))
+	_, err = fmt.Fprintf(file, "%d\n", videoNumber)
 	if err != nil {
 		return err
 	}
