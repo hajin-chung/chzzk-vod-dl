@@ -9,6 +9,7 @@ import (
 const TestChannelId = "a02dc370efd2befeac97881dc83f11bb"
 
 func TestGetVideoList(t *testing.T) {
+	LoadEnv()
 	err := LoadSession()
 	if err != nil {
 		t.Errorf(`LoadSession() error: %s`, err)
@@ -28,6 +29,7 @@ func TestGetVideoList(t *testing.T) {
 }
 
 func TestGetDashUrl(t *testing.T) {
+	LoadEnv()
 	err := LoadSession()
 	if err != nil {
 		t.Errorf(`LoadSession() error: %s`, err)

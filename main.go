@@ -14,6 +14,7 @@ func main() {
 		return
 	}
 	
+	LoadEnv()
 	err := LoadSession()
 	if err != nil {
 		log.Printf("error while loading session: %s\n", err)
