@@ -141,7 +141,7 @@ func DownloadVideo(videoNo int, args ...string) error {
 	if err != nil {
 		return err
 	}
-	outputName := "vod/"+SanitizeFileName(fmt.Sprintf("%s %s.mp4", date, info.Title))
+	outputName := SanitizeFileName(fmt.Sprintf("%s %s.mp4", date, info.Title))
 
 	dashUrl, err := GetDashUrl(videoNo)
 	if err != nil {
@@ -153,7 +153,7 @@ func DownloadVideo(videoNo int, args ...string) error {
 		return err
 	}
 
-	fmt.Printf("%s\n%s\n", videoUrl, outputName)
+	log.Printf("%s\n%s\n", videoUrl, outputName)
 
 	command := []string{"-n", "8", "-o", outputName, videoUrl}
 	command = append(command, args...)

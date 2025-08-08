@@ -1,0 +1,11 @@
+services:
+  cvdl:
+    container_name: "cvdl"
+    build: .
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - CVDL_SESSION=/vod/session.dat
+      - CVDL_MEMO=/vod/memo.dat
+    volumes:
+      - /mnt/d/vod:/vod
