@@ -171,7 +171,7 @@ func DownloadVideo(videoNo int) error {
 }
 
 func DownloadHLSVideo(videoUrl string, outputName string) error {
-	command := []string{"-i", videoUrl, "-c", "copy", outputName}
+	command := []string{"-y", "-i", videoUrl, "-c", "copy", outputName}
 	cmd := exec.Command("ffmpeg", command...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
