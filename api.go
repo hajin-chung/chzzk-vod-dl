@@ -90,7 +90,14 @@ type Video struct {
 type VideoContent struct {
 	Adult   bool   `json:"adult"`
 	InKey   string `json:"inKey"`
+	PlaybackJson string `json:"liveRewindPlaybackJson"`
 	VideoId string `json:"videoId"`
+}
+type VideoPlayback struct {
+	Media []VideoPlaybackMedia `json:"media"`
+}
+type VideoPlaybackMedia struct {
+	Path string `json:"path"`
 }
 
 type VideoType string
@@ -124,7 +131,15 @@ func GetVideoUrl(videoNo int) (*VideoUrl, error) {
 
 	if (video.Content.InKey == "") {
 		// new hls playback
-		return nil, errors.ErrUnsupported
+		playbackData := VideoPlayback{}
+		if err := json.Unmarshal([]byte(video.Content.PlaybackJson), &playbackData); err != nil {
+			return nil, err
+		}
+		videoUrl := VideoUrl {
+			Url: playbackData.Media[0].Path,
+			Type: HLS,
+		}
+		return &videoUrl, nil
 	} else {
 		// old dash playback
 		dashUrl := fmt.Sprintf("https://apis.naver.com/neonplayer/vodplay/v1/playback/%s?key=%s", video.Content.VideoId, video.Content.InKey)

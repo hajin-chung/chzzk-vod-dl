@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"errors"
 	"strconv"
 )
 
@@ -132,7 +133,7 @@ func HandleNew() {
 	}
 }
 
-func DownloadVideo(videoNo int, args ...string) error {
+func DownloadVideo(videoNo int) error {
 	info, err := GetVideoInfo(videoNo)
 	if err != nil {
 		return err
@@ -148,10 +149,47 @@ func DownloadVideo(videoNo int, args ...string) error {
 		return err
 	}
 
-	log.Printf("%s\n%s\n", videoUrl.Url, outputName)
+	log.Printf("[%s] %s\n%s\n", videoUrl.Type, videoUrl.Url, outputName)
 
-	command := []string{"-n", "8", "-o", outputName, videoUrl.Url}
-	command = append(command, args...)
+	switch videoUrl.Type {
+	case HLS:
+		if err := DownloadHLSVideo(videoUrl.Url, outputName); err != nil {
+			return nil
+		}
+	case DASH:
+		if err := DownloadDASHVideo(videoUrl.Url, outputName); err != nil {
+			return nil
+		}
+	default:
+		return errors.New("video type neither hls nor dash")
+	}
+
+	if err := AddMemo(videoNo); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func DownloadHLSVideo(videoUrl string, outputName string) error {
+	command := []string{"-i", videoUrl, "-c", "copy", outputName}
+	cmd := exec.Command("ffmpeg", command...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+
+	if err := cmd.Wait(); err != nil {
+		return err
+	}
+	
+	return nil
+}
+
+func DownloadDASHVideo(videoUrl string, outputName string) error {
+	command := []string{"-n", "8", "-o", outputName, videoUrl}
 	cmd := exec.Command("axel", command...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -163,9 +201,6 @@ func DownloadVideo(videoNo int, args ...string) error {
 	if err := cmd.Wait(); err != nil {
 		return err
 	}
-
-	if err := AddMemo(videoNo); err != nil {
-		return err
-	}
+	
 	return nil
 }
