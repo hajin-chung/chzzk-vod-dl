@@ -29,8 +29,8 @@ func main() {
 		HandleInfo()
 	case "download":
 		HandleDownload()
-	case "new":
-		HandleNew()
+	case "all":
+		HandleAll()
 	default:
 		PrintHelp()
 	}
@@ -42,7 +42,7 @@ func PrintHelp() {
 	fmt.Println("  cvd list <channel id>")
 	fmt.Println("  cvd info <video no>")
 	fmt.Println("  cvd download <video no>")
-	fmt.Println("  cvd new <channel id>")
+	fmt.Println("  cvd all <channel id>")
 }
 
 func HandleList() {
@@ -106,7 +106,7 @@ func HandleDownload() {
 	}
 }
 
-func HandleNew() {
+func HandleAll() {
 	if len(os.Args) < 3 {
 		fmt.Println("Failed to parse list command")
 		os.Exit(1)
@@ -123,7 +123,6 @@ func HandleNew() {
 		if CheckMemo(video.VideoNo) == false {
 			newVideoFound = true
 			DownloadVideo(video.VideoNo)
-			break
 		}
 	}
 
