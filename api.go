@@ -93,71 +93,89 @@ type VideoContent struct {
 	VideoId string `json:"videoId"`
 }
 
-func GetDashUrl(videoNo int) (string, error) {
-	url := fmt.Sprintf("https://api.chzzk.naver.com/service/v2/videos/%d", videoNo)
+type VideoType string
+const (
+	HLS VideoType = "HLS"
+	DASH VideoType = "DASH"
+)
+
+type VideoUrl struct {
+	Type VideoType
+	Url string
+}
+
+func GetVideoUrl(videoNo int) (*VideoUrl, error) {
+	url := fmt.Sprintf("https://api.chzzk.naver.com/service/v3/videos/%d", videoNo)
 	res, err := Get(url)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	bytes, err := io.ReadAll(res.Body)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	video := Video{}
 	err = json.Unmarshal(bytes, &video)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	dashUrl := fmt.Sprintf("https://apis.naver.com/neonplayer/vodplay/v1/playback/%s?key=%s", video.Content.VideoId, video.Content.InKey)
-	return dashUrl, nil
-}
+	if (video.Content.InKey == "") {
+		// new hls playback
+		return nil, errors.ErrUnsupported
+	} else {
+		// old dash playback
+		dashUrl := fmt.Sprintf("https://apis.naver.com/neonplayer/vodplay/v1/playback/%s?key=%s", video.Content.VideoId, video.Content.InKey)
 
-func GetVideoUrl(dashUrl string) (string, error) {
-	req, err := http.NewRequest("GET", dashUrl, nil)
-	if err != nil {
-		return "", err
-	}
-	req.Header.Add("Accept", "application/xml")
-	req.Header.Add("User-Agent", "Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Mobile/15E148 Safari/604.1")
+		req, err := http.NewRequest("GET", dashUrl, nil)
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Add("Accept", "application/xml")
+		req.Header.Add("User-Agent", "Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Mobile/15E148 Safari/604.1")
 
-	res, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return "", err
-	}
+		res, err = http.DefaultClient.Do(req)
+		if err != nil {
+			return nil, err
+		}
 
-	doc, err := xmlquery.Parse(res.Body)
-	if err != nil {
-		return "", err
-	}
+		doc, err := xmlquery.Parse(res.Body)
+		if err != nil {
+			return nil, err
+		}
 
-	representations := xmlquery.Find(doc, "//Representation[@mimeType='video/mp4']")
-	maxBandWidth := 0
+		representations := xmlquery.Find(doc, "//Representation[@mimeType='video/mp4']")
+		maxBandWidth := 0
 
-	for _, node := range representations {
-		for _, attr := range node.Attr {
-			if attr.Name.Local == "bandwidth" {
-				bandwidth, err := strconv.Atoi(attr.Value)
-				if err != nil {
-					continue
-				}
+		for _, node := range representations {
+			for _, attr := range node.Attr {
+				if attr.Name.Local == "bandwidth" {
+					bandwidth, err := strconv.Atoi(attr.Value)
+					if err != nil {
+						continue
+					}
 
-				if bandwidth > maxBandWidth {
-					maxBandWidth = bandwidth
+					if bandwidth > maxBandWidth {
+						maxBandWidth = bandwidth
+					}
 				}
 			}
 		}
-	}
 
-	query := fmt.Sprintf("//Representation[@mimeType='video/mp4'][@bandwidth='%d']/BaseURL", maxBandWidth)
-	node := xmlquery.FindOne(doc, query)
-	if node == nil {
-		return "", errors.New("baseurl not found")
+		query := fmt.Sprintf("//Representation[@mimeType='video/mp4'][@bandwidth='%d']/BaseURL", maxBandWidth)
+		node := xmlquery.FindOne(doc, query)
+		if node == nil {
+			return nil, errors.New("baseurl not found")
+		}
+
+		videoUrl := VideoUrl {
+			Url: node.InnerText(),
+			Type: DASH,
+		}
+		return &videoUrl, nil
 	}
-	videoUrl := node.InnerText()
-	return videoUrl, nil
 }
 
 func Get(url string) (*http.Response, error) {
