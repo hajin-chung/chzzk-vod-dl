@@ -37,3 +37,4 @@ RUN touch /var/log/cvdl-cron.log
 
 CMD echo "cvdl started" >> /var/log/cvdl-cron.log
 CMD cron -f && tail -f /var/log/cvdl-cron.log
+CMD job.sh
