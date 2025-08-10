@@ -18,4 +18,5 @@ Usage:
 - [x] record of already downloaded videos
 - [x] migrate to v3
 - [x] download hls
-- [ ] faster download fmp4 fragments (.m4v)
+- [x] rewrite it in rust
+- [ ] faster download fmp4 fragments (.m4v): download fragments concurrently considering max bandwidth or with using axel
