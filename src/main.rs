@@ -103,6 +103,7 @@ impl CVDL {
                 self.handle_download(&video_num).await?;
             }
         }
+        println!("done");
         Ok(())
     }
 }

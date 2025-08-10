@@ -19,4 +19,6 @@ Usage:
 - [x] migrate to v3
 - [x] download hls
 - [x] rewrite it in rust
+- [ ] better error handling
+- [ ] better logging
 - [ ] faster download fmp4 fragments (.m4v): download fragments concurrently considering max bandwidth or with using axel
