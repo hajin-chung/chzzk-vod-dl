@@ -5,8 +5,8 @@ import (
 	"log"
 )
 
-var sessionPath string = "etc/session.txt"
-var memoPath string = "etc/memo.txt"
+var sessionPath string = "etc/session.dat"
+var memoPath string = "etc/memo.dat"
 
 func LoadEnv() {
 	osSessionPath := os.Getenv("CVDL_SESSION")

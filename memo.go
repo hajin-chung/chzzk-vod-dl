@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"strconv"
 	"strings"
@@ -13,7 +13,7 @@ var memo []int
 func ParseMemo() ([]int, error) {
 	data, err := os.ReadFile(memoPath)
 	if err != nil {
-		log.Printf("error while reading memo file: %s\n", err)
+		slog.Error("ParseMemo os.ReadFile", "error", err)
 		return nil, err
 	}
 	

@@ -18,4 +18,5 @@ Usage:
 - [x] record of already downloaded videos
 - [x] migrate to v3
 - [x] download hls
-- [ ] faster download fmp4 fragments (.m4v)
+- [x] faster download fmp4 fragments (.m4v)
+- [ ] retry mechanisms (segment download, ffmpeg remux)

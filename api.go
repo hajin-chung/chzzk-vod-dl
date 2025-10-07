@@ -193,6 +193,35 @@ func GetVideoUrl(videoNo int) (*VideoUrl, error) {
 	}
 }
 
+type UserStatus struct {
+	Code int `json:"code"`
+	Content UserStatusContent `json:"content"`
+}
+
+type UserStatusContent struct {
+	HasProfile bool `json:"HasProfile"`
+}
+
+func GetUserStatus() (*UserStatus, error) {
+	res, err := Get("https://comm-api.game.naver.com/nng_main/v1/user/getUserStatus")
+	if err != nil {
+		return nil, err
+	}
+
+	bytes, err := io.ReadAll(res.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	userStatus := UserStatus{}
+	err = json.Unmarshal(bytes, &userStatus)
+	if err != nil {
+		return nil, err
+	}
+
+	return &userStatus, nil
+}
+
 func Get(url string) (*http.Response, error) {
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -205,4 +234,18 @@ func Get(url string) (*http.Response, error) {
 	}
 
 	return http.DefaultClient.Do(req)
+}
+
+func GetBody(url string) (string, error) {
+	res, err := Get(url)
+	if err != nil {
+		return "", err
+	}
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return "", err
+	}
+
+	return string(body[:]), nil
 }

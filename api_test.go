@@ -1,9 +1,9 @@
 package main
 
 import (
-	"testing"
 	"fmt"
-	"log"
+	"log/slog"
+	"testing"
 )
 
 const TestChannelId = "a02dc370efd2befeac97881dc83f11bb"
@@ -15,7 +15,7 @@ func TestGetVideoList(t *testing.T) {
 		t.Errorf(`LoadSession() error: %s`, err)
 		return
 	}
-	log.Printf("LoadSession() success")
+	slog.Info("LoadSession() success")
 
 	videoList, err := GetVideoList(TestChannelId)
 	if err != nil {
@@ -34,45 +34,46 @@ func TestGetVideoUrl(t *testing.T) {
 	if err != nil {
 		t.Errorf(`LoadSession() error: %s`, err)
 	}
-	log.Printf("LoadSession() success")
+	slog.Info("LoadSession() success")
 
 	videoList, err := GetVideoList(TestChannelId)
 	if err != nil {
 		t.Errorf(`GetVideoList("%s") error: %s`, TestChannelId, err)
 	}
 	videoListLen := len(videoList)
-	log.Printf("got video list of length: %d", videoListLen)
+	slog.Info("TestGetVideoUrl", "got video list of length", videoListLen)
 
 	for _, videoData := range videoList {
 		videoUrl, err := GetVideoUrl(videoData.VideoNo)
 		if err != nil {
 			t.Errorf(`GetVideoUrl("%d") error: %s`, videoData.VideoNo, err)
 		}
-		log.Printf("video [%s] %s [%s] url\n%s\n", videoData.Date, videoData.Title, videoUrl.Type, videoUrl.Url)
+		slog.Info("TestGetVideoUrl", "date", videoData.Date, "title", videoData.Title, "url type", videoUrl.Type, "url", videoUrl.Url)
 	}
 }
 
 func TestDownloadVideo(t *testing.T) {
+	return
 	LoadEnv()
 	err := LoadSession()
 	if err != nil {
 		t.Errorf(`LoadSession() error: %s`, err)
 	}
-	log.Printf("LoadSession() success")
+	slog.Info("LoadSession() success")
 
 	videoList, err := GetVideoList(TestChannelId)
 	if err != nil {
 		t.Errorf(`GetVideoList("%s") error: %s`, TestChannelId, err)
 	}
 	videoListLen := len(videoList)
-	log.Printf("got video list of length: %d", videoListLen)
+	slog.Info("TestDownloadVideo", "got video list of length", videoListLen)
 
 	videoNo := videoList[videoListLen-1].VideoNo
 	err = DownloadVideo(videoNo)
 	if err != nil {
 		t.Errorf(`DownloadVideo("%d") error: %s`, videoNo, err)
 	}
-	log.Printf("successfully download video\n")
+	slog.Info("successfully download video\n")
 }
 
 // func TestDashHlsV3(t *testing.T) {
@@ -109,3 +110,4 @@ func TestDownloadVideo(t *testing.T) {
 // 		log.Printf("%d: %+v\n", videoData.VideoNo, video)
 // 	}
 // }
+

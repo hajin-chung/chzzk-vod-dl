@@ -1,11 +1,10 @@
 package main
 
 import (
-	"fmt"
-	"log"
-	"os"
-	"os/exec"
 	"errors"
+	"fmt"
+	"log/slog"
+	"os"
 	"strconv"
 )
 
@@ -14,11 +13,11 @@ func main() {
 		PrintHelp()
 		return
 	}
-	
+
 	LoadEnv()
 	err := LoadSession()
 	if err != nil {
-		log.Printf("error while loading session: %s\n", err)
+		slog.Error("main LoadEnv", "error", err)
 	}
 
 	cmd := os.Args[1]
@@ -55,13 +54,15 @@ func HandleList() {
 
 	videos, err := GetVideoList(channelId)
 	if err != nil {
-		log.Fatal(err)
+		slog.Error("HandleList GetVideoList", "error", err)
+		return
 	}
 
 	for _, video := range videos {
 		date, err := FormatDate(video.Date)
 		if err != nil {
-			log.Fatal(err)
+			slog.Error("HandleList FormatDate", "error", err)
+			return
 		}
 		fmt.Printf("%-8d %10s %s\n", video.VideoNo, date, video.Title)
 	}
@@ -74,18 +75,21 @@ func HandleInfo() {
 	}
 	videoNo, err := strconv.Atoi(os.Args[2])
 	if err != nil {
-		log.Fatal(err)
+		slog.Error("HandleInfo strconv.Atoi", "error", err)
+		return
 	}
 	fmt.Printf("Info [%d]\n", videoNo)
 
 	info, err := GetVideoInfo(videoNo)
 	if err != nil {
-		log.Fatal(err)
+		slog.Error("HandleInfo GetVideoInfo", "error", err)
+		return
 	}
 
 	date, err := FormatDate(info.Date)
 	if err != nil {
-		log.Fatal(err)
+		slog.Error("HandleInfo FormatDate", "error", err)
+		return
 	}
 	fmt.Printf("%-8d %10s %s\n", info.VideoNo, date, info.Title)
 }
@@ -97,12 +101,14 @@ func HandleDownload() {
 	}
 	videoNo, err := strconv.Atoi(os.Args[2])
 	if err != nil {
-		log.Fatal(err)
+		slog.Error("HandleDownload strconv.Atoi", "error", err)
+		return
 	}
 
 	err = DownloadVideo(videoNo)
 	if err != nil {
-		log.Fatal(err)
+		slog.Error("HandleDownload DownloadVideo", "error", err)
+		return
 	}
 }
 
@@ -115,7 +121,8 @@ func HandleAll() {
 
 	videos, err := GetVideoList(channelId)
 	if err != nil {
-		log.Panic(err)
+		slog.Error("HandleAll GetVideoList", "error", err)
+		return
 	}
 
 	newVideoFound := false
@@ -148,7 +155,7 @@ func DownloadVideo(videoNo int) error {
 		return err
 	}
 
-	log.Printf("[%s] %s\n%s\n", videoUrl.Type, videoUrl.Url, outputName)
+	fmt.Printf("[%s] %s\n%s\n", videoUrl.Type, videoUrl.Url, outputName)
 
 	switch videoUrl.Type {
 	case HLS:
@@ -170,36 +177,3 @@ func DownloadVideo(videoNo int) error {
 	return nil
 }
 
-func DownloadHLSVideo(videoUrl string, outputName string) error {
-	command := []string{"-y", "-i", videoUrl, "-c", "copy", outputName}
-	cmd := exec.Command("ffmpeg", command...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Start(); err != nil {
-		return err
-	}
-
-	if err := cmd.Wait(); err != nil {
-		return err
-	}
-	
-	return nil
-}
-
-func DownloadDASHVideo(videoUrl string, outputName string) error {
-	command := []string{"-n", "8", "-o", outputName, videoUrl}
-	cmd := exec.Command("axel", command...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Start(); err != nil {
-		return err
-	}
-
-	if err := cmd.Wait(); err != nil {
-		return err
-	}
-	
-	return nil
-}
