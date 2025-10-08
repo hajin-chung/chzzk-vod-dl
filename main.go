@@ -8,7 +8,10 @@ import (
 	"strconv"
 )
 
+var commitHash string
+
 func main() {
+	fmt.Printf("cvd (chzzk-vod-dl) by hajin %s\n", commitHash)
 	if len(os.Args) < 2 {
 		PrintHelp()
 		return
