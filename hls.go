@@ -37,6 +37,7 @@ func DownloadHLSVideo(videoUrl string, outputName string) error {
 		return err
 	}
 
+	os.RemoveAll(".tmp")
 	// download files
 	if err := os.MkdirAll(".tmp", 0755); err != nil {
 		slog.Error("DownloadHLSVideo os.MkdirAll", "error", err)
@@ -51,14 +52,14 @@ func DownloadHLSVideo(videoUrl string, outputName string) error {
 		slog.Error("DownloadHLSVideo sem.Acquire init", "error", err)
 		return err
 	}
-	if err := downloadFileRetry(sem, playlist.Init, ".tmp/init.m4s", 10); err != nil {
+	if err := downloadFileRetry(sem, playlist.Init, ".tmp/init.m4s", 10, -1); err != nil {
 		slog.Error("DownloadHLSVideo downloadFile", "error", err)
 		return err
 	}
 
 	for i, url := range playlist.Segments {
 		go func() {
-			if err := downloadFileRetry(sem, url, fmt.Sprintf(".tmp/%d.m4v", i), 10); err != nil {
+			if err := downloadFileRetry(sem, url, fmt.Sprintf(".tmp/%d.m4v", i), 10, i); err != nil {
 				slog.Error("DownloadHLSVideo downloadFile", "error", err)
 				fmt.Printf("download segment %d / %d FAIL\n", i, len(playlist.Segments))
 			} else {
@@ -226,14 +227,14 @@ func downloadFile(sem *semaphore.Weighted, url string, path string) error {
 	return nil
 }
 
-func downloadFileRetry(sem *semaphore.Weighted, url string, path string, retry int) error {
+func downloadFileRetry(sem *semaphore.Weighted, url string, path string, retry int, index int) error {
 	var err error
 	for retry > 0 {
 		err = downloadFile(sem, url, path)
 		if err == nil {
 			return nil
 		}
-		slog.Error("downloadFileRetry downloadFile error so retry", "left", retry)
+		slog.Error("downloadFileRetry downloadFile error retry", "left", retry, "index", index)
 		retry--
 	}
 	return err
