@@ -44,23 +44,21 @@ func DownloadHLSVideo(videoUrl string, outputName string) error {
 	}
 	defer os.RemoveAll(".tmp")
 
-	if err := downloadFile(playlist.Init, ".tmp/init.m4s"); err != nil {
+	maxWorkers := int64(2 * runtime.GOMAXPROCS(0))
+	sem := semaphore.NewWeighted(maxWorkers)
+
+	if err := sem.Acquire(context.Background(), 1); err != nil {
+		slog.Error("DownloadHLSVideo sem.Acquire init", "error", err)
+		return err
+	}
+	if err := downloadFileRetry(sem, playlist.Init, ".tmp/init.m4s", 10); err != nil {
 		slog.Error("DownloadHLSVideo downloadFile", "error", err)
 		return err
 	}
 
-	maxWorkers := int64(2 * runtime.GOMAXPROCS(0))
-	sem := semaphore.NewWeighted(maxWorkers)
-
 	for i, url := range playlist.Segments {
-		if err := sem.Acquire(context.Background(), 1); err != nil {
-			slog.Error("DownloadHLSVideo sem.Acquire", "error", err)
-			break
-		}
-
 		go func() {
-			defer sem.Release(1)
-			if err := downloadFile(url, fmt.Sprintf(".tmp/%d.m4v", i)); err != nil {
+			if err := downloadFileRetry(sem, url, fmt.Sprintf(".tmp/%d.m4v", i), 10); err != nil {
 				slog.Error("DownloadHLSVideo downloadFile", "error", err)
 				fmt.Printf("download segment %d / %d FAIL\n", i, len(playlist.Segments))
 			} else {
@@ -201,7 +199,13 @@ func parsePlaylistHLS(url string, hls string) (*playlist, error) {
 	return &playlist{initUrl, segments}, nil
 }
 
-func downloadFile(url string, path string) error {
+func downloadFile(sem *semaphore.Weighted, url string, path string) error {
+	if err := sem.Acquire(context.Background(), 1); err != nil {
+		slog.Error("downloadFile sem.Acquire", "error", err)
+		return err
+	}
+
+	defer sem.Release(1)
 	res, err := Get(url)
 	if err != nil {
 		return err
@@ -220,6 +224,19 @@ func downloadFile(url string, path string) error {
 
 	slog.Debug("downloadFile", "path", path, "bytesWritten", bytesWritten)
 	return nil
+}
+
+func downloadFileRetry(sem *semaphore.Weighted, url string, path string, retry int) error {
+	var err error
+	for retry > 0 {
+		err = downloadFile(sem, url, path)
+		if err == nil {
+			return nil
+		}
+		slog.Error("downloadFileRetry downloadFile error so retry", "left", retry)
+		retry--
+	}
+	return err
 }
 
 func UrlJoin(base string, part string) (string, error) {
