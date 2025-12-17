@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/schollz/progressbar/v3"
 	"golang.org/x/sync/semaphore"
 )
 
@@ -45,27 +46,29 @@ func DownloadHLSVideo(videoUrl string, outputName string) error {
 	}
 	defer os.RemoveAll(".tmp")
 
-	maxWorkers := int64(2 * runtime.GOMAXPROCS(0))
-	sem := semaphore.NewWeighted(maxWorkers)
-
-	if err := sem.Acquire(context.Background(), 1); err != nil {
-		slog.Error("DownloadHLSVideo sem.Acquire init", "error", err)
-		return err
-	}
-	if err := downloadFileRetry(sem, playlist.Init, ".tmp/init.m4s", 10, -1); err != nil {
+	if err := downloadFileRetry(playlist.Init, ".tmp/init.m4s", 10, -1); err != nil {
 		slog.Error("DownloadHLSVideo downloadFile", "error", err)
 		return err
 	}
 
+	maxWorkers := int64(runtime.GOMAXPROCS(0))
+	sem := semaphore.NewWeighted(maxWorkers)
+
+	slog.Debug("DownloadHLSVideo", "segment length", len(playlist.Segments))
+	bar := progressbar.Default(int64(len(playlist.Segments)), "download")
 	for i, url := range playlist.Segments {
-		go func() {
-			if err := downloadFileRetry(sem, url, fmt.Sprintf(".tmp/%d.m4v", i), 10, i); err != nil {
+		if err := sem.Acquire(context.Background(), 1); err != nil {
+			slog.Error("downloadFile sem.Acquire", "error", err)
+		}
+		go func(i int, url string, sem *semaphore.Weighted) {
+			defer sem.Release(1)
+
+			if err := downloadFileRetry(url, fmt.Sprintf(".tmp/%d.m4v", i), 10, i); err != nil {
 				slog.Error("DownloadHLSVideo downloadFile", "error", err)
 				fmt.Printf("download segment %d / %d FAIL\n", i, len(playlist.Segments))
-			} else {
-				fmt.Printf("download segment %d / %d SUCCESS\n", i, len(playlist.Segments))
 			}
-		}()
+			bar.Add(1)
+		}(i, url, sem)
 	}
 
 	if err := sem.Acquire(context.Background(), maxWorkers); err != nil {
@@ -94,6 +97,7 @@ func DownloadHLSVideo(videoUrl string, outputName string) error {
 		return err
 	}
 
+	bar = progressbar.Default(int64(len(playlist.Segments)), "concat")
 	for i := range len(playlist.Segments) {
 		sf, err := os.Open(fmt.Sprintf(".tmp/%d.m4v", i))
 		if err != nil {
@@ -106,11 +110,11 @@ func DownloadHLSVideo(videoUrl string, outputName string) error {
 			slog.Error("DownloadHLSVideo io.Copy", "error", err)
 			return err
 		}
-		fmt.Printf("concat segment %d / %d SUCCESS\n", i, len(playlist.Segments))
+		bar.Add(1)
 	}
 
 	// remux
-	cmd := exec.Command("ffmpeg", "-i", ".tmp/all.mp4", "-c", "copy", outputName)
+	cmd := exec.Command("ffmpeg", "-i", ".tmp/all.mp4", "-c", "copy", "-y", outputName)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
@@ -200,13 +204,7 @@ func parsePlaylistHLS(url string, hls string) (*playlist, error) {
 	return &playlist{initUrl, segments}, nil
 }
 
-func downloadFile(sem *semaphore.Weighted, url string, path string) error {
-	if err := sem.Acquire(context.Background(), 1); err != nil {
-		slog.Error("downloadFile sem.Acquire", "error", err)
-		return err
-	}
-
-	defer sem.Release(1)
+func downloadFile(url string, path string) error {
 	res, err := Get(url)
 	if err != nil {
 		return err
@@ -222,15 +220,16 @@ func downloadFile(sem *semaphore.Weighted, url string, path string) error {
 	if err != nil {
 		return err
 	}
+	defer res.Body.Close()
 
 	slog.Debug("downloadFile", "path", path, "bytesWritten", bytesWritten)
 	return nil
 }
 
-func downloadFileRetry(sem *semaphore.Weighted, url string, path string, retry int, index int) error {
+func downloadFileRetry(url string, path string, retry int, index int) error {
 	var err error
 	for retry > 0 {
-		err = downloadFile(sem, url, path)
+		err = downloadFile(url, path)
 		if err == nil {
 			return nil
 		}

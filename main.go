@@ -23,6 +23,8 @@ func main() {
 		slog.Error("main LoadEnv", "error", err)
 	}
 
+	slog.SetLogLoggerLevel(slog.LevelInfo)
+
 	cmd := os.Args[1]
 	switch cmd {
 	case "list":
@@ -151,7 +153,7 @@ func DownloadVideo(videoNo int) error {
 	if err != nil {
 		return err
 	}
-	outputName := SanitizeFileName(fmt.Sprintf("%s %s.mp4", date, info.Title))
+	outputName := SanitizeFileName(fmt.Sprintf("%s %s [%d].mp4", date, info.Title, info.VideoNo))
 
 	videoUrl, err := GetVideoUrl(videoNo)
 	if err != nil {
