@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	neturl "net/url"
 	"os"
+	"bufio"
 	"os/exec"
 	"regexp"
 	"runtime"
@@ -77,41 +78,47 @@ func DownloadHLSVideo(videoUrl string, outputName string) error {
 	}
 
 	// concat segments
-	file, err := os.OpenFile(".tmp/all.mp4", os.O_WRONLY|os.O_CREATE, 0644)
+	target, err := os.OpenFile(".tmp/all.mp4", os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
-		slog.Error("DownloadHLSVideo os.OpenFile", "error", err)
 		return err
 	}
-	defer file.Close()
+	defer target.Close()
 
-	f, err := os.Open(".tmp/init.m4s")
-	if err != nil {
-		slog.Error("DownloadHLSVideo os.Open", "error", err)
-		return err
-	}
-	defer f.Close()
+	// Wrap in a buffer (e.g., 1MB buffer)
+	writer := bufio.NewWriterSize(target, 1024*1024)
 
-	_, err = io.Copy(file, f)
-	if err != nil {
-		slog.Error("DownloadHLSVideo io.Copy", "error", err)
-		return err
-	}
-
-	bar = progressbar.Default(int64(len(playlist.Segments)), "concat")
-	for i := range len(playlist.Segments) {
-		sf, err := os.Open(fmt.Sprintf(".tmp/%d.m4v", i))
+	// Helper function to append files
+	appendFile := func(path string) error {
+		f, err := os.Open(path)
 		if err != nil {
-			slog.Error("DownloadHLSVideo os.Open", "error", err)
 			return err
 		}
+		// Closures ensure the file is closed immediately after the copy
+		defer f.Close() 
 
-		_, err = io.Copy(file, sf)
-		if err != nil {
-			slog.Error("DownloadHLSVideo io.Copy", "error", err)
+		_, err = io.Copy(writer, f)
+		return err
+	}
+
+	// 2. Copy Init Segment
+	if err := appendFile(".tmp/init.m4s"); err != nil {
+		slog.Error("Failed to copy init segment", "error", err)
+		return err
+	}
+
+	// 3. Copy Segments
+	bar = progressbar.Default(int64(len(playlist.Segments)), "concat")
+	for i := range playlist.Segments {
+		path := fmt.Sprintf(".tmp/%d.m4v", i)
+		if err := appendFile(path); err != nil {
+			slog.Error("Failed to copy segment", "index", i, "error", err)
 			return err
 		}
 		bar.Add(1)
 	}
+
+	// 4. IMPORTANT: Flush the buffer to disk before closing the underlying file
+	writer.Flush()
 
 	// remux
 	cmd := exec.Command("ffmpeg", "-i", ".tmp/all.mp4", "-c", "copy", "-y", outputName)
