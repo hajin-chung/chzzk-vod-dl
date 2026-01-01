@@ -13,9 +13,10 @@ import (
 )
 
 type VideoData struct {
-	VideoNo int    `json:"videoNo"`
-	Title   string `json:"videoTitle"`
-	Date    string `json:"publishDate"`
+	VideoNo  int    `json:"videoNo"`
+	Duration int    `json:"duration"`
+	Title    string `json:"videoTitle"`
+	Date     string `json:"publishDate"`
 }
 
 type VideoDataRes struct {
@@ -30,7 +31,7 @@ func GetVideoInfo(videoNo int) (*VideoData, error) {
 		return nil, err
 	}
 
-	bytes, err := io.ReadAll(res.Body)	
+	bytes, err := io.ReadAll(res.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -88,10 +89,10 @@ type Video struct {
 }
 
 type VideoContent struct {
-	Adult   bool   `json:"adult"`
-	InKey   string `json:"inKey"`
+	Adult        bool   `json:"adult"`
+	InKey        string `json:"inKey"`
 	PlaybackJson string `json:"liveRewindPlaybackJson"`
-	VideoId string `json:"videoId"`
+	VideoId      string `json:"videoId"`
 }
 type VideoPlayback struct {
 	Media []VideoPlaybackMedia `json:"media"`
@@ -101,14 +102,15 @@ type VideoPlaybackMedia struct {
 }
 
 type VideoType string
+
 const (
-	HLS VideoType = "HLS"
+	HLS  VideoType = "HLS"
 	DASH VideoType = "DASH"
 )
 
 type VideoUrl struct {
 	Type VideoType
-	Url string
+	Url  string
 }
 
 func GetVideoUrl(videoNo int) (*VideoUrl, error) {
@@ -129,14 +131,14 @@ func GetVideoUrl(videoNo int) (*VideoUrl, error) {
 		return nil, err
 	}
 
-	if (video.Content.InKey == "") {
+	if video.Content.InKey == "" {
 		// new hls playback
 		playbackData := VideoPlayback{}
 		if err := json.Unmarshal([]byte(video.Content.PlaybackJson), &playbackData); err != nil {
 			return nil, err
 		}
-		videoUrl := VideoUrl {
-			Url: playbackData.Media[0].Path,
+		videoUrl := VideoUrl{
+			Url:  playbackData.Media[0].Path,
 			Type: HLS,
 		}
 		return &videoUrl, nil
@@ -185,8 +187,8 @@ func GetVideoUrl(videoNo int) (*VideoUrl, error) {
 			return nil, errors.New("baseurl not found")
 		}
 
-		videoUrl := VideoUrl {
-			Url: node.InnerText(),
+		videoUrl := VideoUrl{
+			Url:  node.InnerText(),
 			Type: DASH,
 		}
 		return &videoUrl, nil
@@ -194,7 +196,7 @@ func GetVideoUrl(videoNo int) (*VideoUrl, error) {
 }
 
 type UserStatus struct {
-	Code int `json:"code"`
+	Code    int               `json:"code"`
 	Content UserStatusContent `json:"content"`
 }
 
@@ -227,7 +229,7 @@ func Get(url string) (*http.Response, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	req.Header.Add("User-Agent", "Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Mobile/15E148 Safari/604.1")
 	if sessionLoadSuccess {
 		req.Header.Add("Cookie", session)
@@ -250,3 +252,4 @@ func GetBody(url string) (string, error) {
 
 	return string(body[:]), nil
 }
+

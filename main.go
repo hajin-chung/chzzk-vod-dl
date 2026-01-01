@@ -69,7 +69,8 @@ func HandleList() {
 			slog.Error("HandleList FormatDate", "error", err)
 			return
 		}
-		fmt.Printf("%-8d %10s %s\n", video.VideoNo, date, video.Title)
+		duration := formatDuration(video.Duration)
+		fmt.Printf("%d\t%s\t%s\t%s\n", video.VideoNo, date, duration, video.Title)
 	}
 }
 

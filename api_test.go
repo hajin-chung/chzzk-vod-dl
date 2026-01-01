@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log/slog"
 	"testing"
 )
@@ -24,7 +23,7 @@ func TestGetVideoList(t *testing.T) {
 	}
 
 	for i, videoData := range videoList {
-		fmt.Printf("%02d [%s] %s\n", i, videoData.Date, videoData.Title[:min(50, len(videoData.Title))])
+		t.Logf("%02d [%s] %s duration: %d\n", i, videoData.Date, videoData.Title[:min(50, len(videoData.Title))], videoData.Duration)
 	}
 }
 
@@ -48,7 +47,7 @@ func TestGetVideoUrl(t *testing.T) {
 		if err != nil {
 			t.Errorf(`GetVideoUrl("%d") error: %s`, videoData.VideoNo, err)
 		}
-		slog.Info("TestGetVideoUrl", "date", videoData.Date, "title", videoData.Title, "url type", videoUrl.Type, "url", videoUrl.Url)
+		slog.Info("TestGetVideoUrl", "date", videoData.Date, "title", videoData.Title, "url type", videoUrl.Type, "url", videoUrl.Url, "duration", videoData.Duration)
 	}
 }
 

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"strings"
 	"time"
 )
@@ -20,4 +21,12 @@ func SanitizeFileName(name string) string {
 		sanitized = strings.ReplaceAll(sanitized, char, "")
 	}
 	return sanitized
+}
+
+func formatDuration(duration int) string {
+	hour := duration / 3600
+	minute := (duration % 3600) / 60
+	second := duration % 60
+
+	return fmt.Sprintf("%02d:%02d:%02d", hour, minute, second)
 }
