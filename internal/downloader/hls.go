@@ -1,6 +1,7 @@
-package main
+package downloader
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"fmt"
@@ -8,26 +9,26 @@ import (
 	"log/slog"
 	neturl "net/url"
 	"os"
-	"bufio"
 	"os/exec"
 	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
 
+	"deps.me/chzzk-vod-dl/internal/api"
 	"github.com/schollz/progressbar/v3"
 	"golang.org/x/sync/semaphore"
 )
 
-func DownloadHLSVideo(videoUrl string, outputName string) error {
+func DownloadHLSVideo(client *api.ChzzkClient, videoUrl string, outputName string) error {
 	// parse hls
-	playlistUrl, err := getPlaylistUrl(videoUrl)
+	playlistUrl, err := getPlaylistUrl(client, videoUrl)
 	if err != nil {
 		slog.Error("DownloadHLSVideo parseMasterHLS", "error", err)
 		return err
 	}
 
-	playlistHLS, err := GetBody(playlistUrl)
+	playlistHLS, err := client.GetBody(playlistUrl)
 	if err != nil {
 		slog.Error("DownloadHLSVideo GetBody", "error", err)
 		return err
@@ -47,7 +48,7 @@ func DownloadHLSVideo(videoUrl string, outputName string) error {
 	}
 	defer os.RemoveAll(".tmp")
 
-	if err := downloadFileRetry(playlist.Init, ".tmp/init.m4s", 10, -1); err != nil {
+	if err := downloadFileRetry(client, playlist.Init, ".tmp/init.m4s", 10, -1); err != nil {
 		slog.Error("DownloadHLSVideo downloadFile", "error", err)
 		return err
 	}
@@ -64,7 +65,7 @@ func DownloadHLSVideo(videoUrl string, outputName string) error {
 		go func(i int, url string, sem *semaphore.Weighted) {
 			defer sem.Release(1)
 
-			if err := downloadFileRetry(url, fmt.Sprintf(".tmp/%d.m4v", i), 10, i); err != nil {
+			if err := downloadFileRetry(client, url, fmt.Sprintf(".tmp/%d.m4v", i), 10, i); err != nil {
 				slog.Error("DownloadHLSVideo downloadFile", "error", err)
 				fmt.Printf("download segment %d / %d FAIL\n", i, len(playlist.Segments))
 			}
@@ -132,8 +133,8 @@ func DownloadHLSVideo(videoUrl string, outputName string) error {
 	return nil
 }
 
-func getPlaylistUrl(url string) (string, error) {
-	playlistHLS, err := GetBody(url)
+func getPlaylistUrl(client *api.ChzzkClient, url string) (string, error) {
+	playlistHLS, err := client.GetBody(url)
 	if err != nil {
 		slog.Error("getPlaylistUrl GetBody", "error", err)
 		return "", err
@@ -211,8 +212,8 @@ func parsePlaylistHLS(url string, hls string) (*playlist, error) {
 	return &playlist{initUrl, segments}, nil
 }
 
-func downloadFile(url string, path string) error {
-	res, err := Get(url)
+func downloadFile(client *api.ChzzkClient, url string, path string) error {
+	res, err := client.Get(url)
 	if err != nil {
 		return err
 	}
@@ -233,10 +234,10 @@ func downloadFile(url string, path string) error {
 	return nil
 }
 
-func downloadFileRetry(url string, path string, retry int, index int) error {
+func downloadFileRetry(client *api.ChzzkClient, url string, path string, retry int, index int) error {
 	var err error
 	for retry > 0 {
-		err = downloadFile(url, path)
+		err = downloadFile(client, url, path)
 		if err == nil {
 			return nil
 		}

@@ -1,4 +1,4 @@
-package main
+package utils
 
 import (
 	"fmt"
@@ -23,7 +23,7 @@ func SanitizeFileName(name string) string {
 	return sanitized
 }
 
-func formatDuration(duration int) string {
+func FormatDuration(duration int) string {
 	hour := duration / 3600
 	minute := (duration % 3600) / 60
 	second := duration % 60

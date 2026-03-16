@@ -1,4 +1,4 @@
-package main
+package api
 
 import (
 	"encoding/json"
@@ -12,75 +12,44 @@ import (
 	"github.com/antchfx/xmlquery"
 )
 
-type VideoData struct {
-	VideoNo  int    `json:"videoNo"`
-	Duration int    `json:"duration"`
-	Title    string `json:"videoTitle"`
-	Date     string `json:"publishDate"`
+type ChzzkClient struct {
+	Cookie string
 }
 
-type VideoDataRes struct {
-	Code    int       `json:"code"`
-	Content VideoData `json:"content"`
+func NewChzzkClient(aut string, ses string) *ChzzkClient {
+	cookie := fmt.Sprintf("NID_AUT=%s; NID_SES=%s", aut, ses)
+	return &ChzzkClient{ Cookie: cookie }
 }
 
-func GetVideoInfo(videoNo int) (*VideoData, error) {
-	url := fmt.Sprintf("https://api.chzzk.naver.com/service/v2/videos/%d", videoNo)
-	res, err := Get(url)
+func (c *ChzzkClient) Auth(aut string, ses string) {
+	c.Cookie = fmt.Sprintf("NID_AUT=%s; NID_SES=%s", aut, ses)
+}
+
+func (c *ChzzkClient) Get(url string) (*http.Response, error) {
+	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	bytes, err := io.ReadAll(res.Body)
+	req.Header.Add("User-Agent", "Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Mobile/15E148 Safari/604.1")
+	req.Header.Add("Cookie", c.Cookie)
+
+	return http.DefaultClient.Do(req)
+} 
+
+func (c *ChzzkClient) GetBody(url string) (string, error) {
+	res, err := c.Get(url)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
-	data := VideoDataRes{}
-	err = json.Unmarshal(bytes, &data)
+	body, err := io.ReadAll(res.Body)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
+	defer res.Body.Close()
 
-	return &data.Content, nil
-}
-
-type VideoListContent struct {
-	Data       []VideoData `json:"data"`
-	TotalPages int         `json:"totalPages"`
-}
-
-type VideoListRes struct {
-	Code    int              `json:"code"`
-	Content VideoListContent `json:"content"`
-}
-
-func GetVideoList(channelId string) ([]VideoData, error) {
-	totalPages := 1
-	videoList := []VideoData{}
-	for page := 0; page < totalPages; page++ {
-		url := fmt.Sprintf("https://api.chzzk.naver.com/service/v1/channels/%s/videos?page=%d", channelId, page)
-		res, err := Get(url)
-		if err != nil {
-			return nil, err
-		}
-
-		bytes, err := io.ReadAll(res.Body)
-		if err != nil {
-			return nil, err
-		}
-
-		data := VideoListRes{}
-		err = json.Unmarshal(bytes, &data)
-		if err != nil {
-			return nil, err
-		}
-		videoList = append(videoList, data.Content.Data...)
-		totalPages = data.Content.TotalPages
-	}
-
-	slices.Reverse(videoList)
-	return videoList, nil
+	return string(body[:]), nil
 }
 
 type Video struct {
@@ -113,9 +82,9 @@ type VideoUrl struct {
 	Url  string
 }
 
-func GetVideoUrl(videoNo int) (*VideoUrl, error) {
+func (c *ChzzkClient) GetVideoUrl(videoNo int) (*VideoUrl, error) {
 	url := fmt.Sprintf("https://api.chzzk.naver.com/service/v3/videos/%d", videoNo)
-	res, err := Get(url)
+	res, err := c.Get(url)
 	if err != nil {
 		return nil, err
 	}
@@ -202,10 +171,11 @@ type UserStatus struct {
 
 type UserStatusContent struct {
 	HasProfile bool `json:"HasProfile"`
+	NickName *string `json:"nickname,omitempty"`
 }
 
-func GetUserStatus() (*UserStatus, error) {
-	res, err := Get("https://comm-api.game.naver.com/nng_main/v1/user/getUserStatus")
+func (c *ChzzkClient) GetUserStatus() (*UserStatus, error) {
+	res, err := c.Get("https://comm-api.game.naver.com/nng_main/v1/user/getUserStatus")
 	if err != nil {
 		return nil, err
 	}
@@ -224,32 +194,73 @@ func GetUserStatus() (*UserStatus, error) {
 	return &userStatus, nil
 }
 
-func Get(url string) (*http.Response, error) {
-	req, err := http.NewRequest("GET", url, nil)
+type VideoData struct {
+	VideoNo  int    `json:"videoNo"`
+	Duration int    `json:"duration"`
+	Title    string `json:"videoTitle"`
+	Date     string `json:"publishDate"`
+}
+
+type VideoDataRes struct {
+	Code    int       `json:"code"`
+	Content VideoData `json:"content"`
+}
+
+func (c *ChzzkClient) GetVideoInfo(videoNo int) (*VideoData, error) {
+	url := fmt.Sprintf("https://api.chzzk.naver.com/service/v2/videos/%d", videoNo)
+	res, err := c.Get(url)
 	if err != nil {
 		return nil, err
 	}
 
-	req.Header.Add("User-Agent", "Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Mobile/15E148 Safari/604.1")
-	if sessionLoadSuccess {
-		req.Header.Add("Cookie", session)
+	bytes, err := io.ReadAll(res.Body)
+	if err != nil {
+		return nil, err
 	}
 
-	return http.DefaultClient.Do(req)
+	data := VideoDataRes{}
+	err = json.Unmarshal(bytes, &data)
+	if err != nil {
+		return nil, err
+	}
+
+	return &data.Content, nil
 }
 
-func GetBody(url string) (string, error) {
-	res, err := Get(url)
-	if err != nil {
-		return "", err
-	}
-
-	body, err := io.ReadAll(res.Body)
-	if err != nil {
-		return "", err
-	}
-	defer res.Body.Close()
-
-	return string(body[:]), nil
+type VideoListContent struct {
+	Data       []VideoData `json:"data"`
+	TotalPages int         `json:"totalPages"`
 }
 
+type VideoListRes struct {
+	Code    int              `json:"code"`
+	Content VideoListContent `json:"content"`
+}
+
+func (c *ChzzkClient) GetVideoList(channelId string) ([]VideoData, error) {
+	totalPages := 1
+	videoList := []VideoData{}
+	for page := 0; page < totalPages; page++ {
+		url := fmt.Sprintf("https://api.chzzk.naver.com/service/v1/channels/%s/videos?page=%d", channelId, page)
+		res, err := c.Get(url)
+		if err != nil {
+			return nil, err
+		}
+
+		bytes, err := io.ReadAll(res.Body)
+		if err != nil {
+			return nil, err
+		}
+
+		data := VideoListRes{}
+		err = json.Unmarshal(bytes, &data)
+		if err != nil {
+			return nil, err
+		}
+		videoList = append(videoList, data.Content.Data...)
+		totalPages = data.Content.TotalPages
+	}
+
+	slices.Reverse(videoList)
+	return videoList, nil
+}
