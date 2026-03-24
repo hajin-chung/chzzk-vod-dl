@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"slices"
 	"strconv"
@@ -50,6 +51,19 @@ func (c *ChzzkClient) GetBody(url string) (string, error) {
 	defer res.Body.Close()
 
 	return string(body[:]), nil
+}
+
+func (c *ChzzkClient) GetWithRetry(url string, retry int) (*http.Response, error) {
+	var err error
+	for retry > 0 {
+		res, err := c.Get(url)
+		if err == nil {
+			return res, nil
+		}
+		slog.Error("GetWithRetry retry", "left", retry, "err", err)
+		retry--
+	}
+	return nil, err
 }
 
 type Video struct {

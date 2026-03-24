@@ -1,24 +1,45 @@
 package downloader
 
 import (
-	"bufio"
 	"context"
 	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	neturl "net/url"
-	"os"
 	"os/exec"
 	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
+	"sync/atomic"
 
 	"deps.me/chzzk-vod-dl/internal/api"
-	"github.com/schollz/progressbar/v3"
 	"golang.org/x/sync/semaphore"
 )
+
+type StatusWriter struct {
+	TotalSegmentLen int64
+	SegmentCounter  atomic.Int64
+}
+
+func (w *StatusWriter) Write(p []byte) (n int, err error) {
+	lines := strings.Split(string(p), "\r")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if len(line) > 0 {
+			count := w.SegmentCounter.Load()
+			total := w.TotalSegmentLen
+
+			percent := int64(0)
+			if total > 0 {
+				percent = (count * 100) / total
+			}
+			fmt.Printf("\r%s | segments=%d/%d (%d%%)\033[K", line, count, total, percent)
+		}
+	}
+	return len(p), nil
+}
 
 func DownloadHLSVideo(client *api.ChzzkClient, videoUrl string, outputName string) error {
 	// parse hls
@@ -40,97 +61,116 @@ func DownloadHLSVideo(client *api.ChzzkClient, videoUrl string, outputName strin
 		return err
 	}
 
-	os.RemoveAll(".tmp")
-	// download files
-	if err := os.MkdirAll(".tmp", 0755); err != nil {
-		slog.Error("DownloadHLSVideo os.MkdirAll", "error", err)
-		return err
-	}
-	defer os.RemoveAll(".tmp")
-
-	if err := downloadFileRetry(client, playlist.Init, ".tmp/init.m4s", 10, -1); err != nil {
-		slog.Error("DownloadHLSVideo downloadFile", "error", err)
-		return err
+	statusWriter := StatusWriter{
+		TotalSegmentLen: int64(len(playlist.Segments)),
+		SegmentCounter:  atomic.Int64{},
 	}
 
-	maxWorkers := int64(runtime.GOMAXPROCS(0))
+	cmd := exec.Command("ffmpeg",
+		"-hide_banner",
+		"-i", "pipe:0",
+		"-c", "copy",
+		"-movflags", "+frag_keyframe+empty_moov+default_base_moof+global_sidx",
+		"-y",
+		outputName,
+	)
+
+	cmd.Stdout = &statusWriter
+	cmd.Stderr = &statusWriter
+
+	ffmpegStdin, err := cmd.StdinPipe()
+	if err != nil {
+		slog.Error("DownloadHLSVideo cmd.StdinPipe", "error", err)
+		return err
+	}
+
+	if err := cmd.Start(); err != nil {
+		slog.Error("DownloadHLSVideo cmd.Start", "error", err)
+		return err
+	}
+
+	maxWorkers := int64(runtime.GOMAXPROCS(0) * 2)
 	sem := semaphore.NewWeighted(maxWorkers)
 
-	slog.Debug("DownloadHLSVideo", "segment length", len(playlist.Segments))
-	bar := progressbar.Default(int64(len(playlist.Segments)), "download")
-	for i, url := range playlist.Segments {
-		if err := sem.Acquire(context.Background(), 1); err != nil {
-			slog.Error("downloadFile sem.Acquire", "error", err)
+	type segmentResult struct {
+		index int
+		data  []byte
+		err   error
+	}
+	resultChan := make(chan segmentResult, maxWorkers)
+
+	doneChan := make(chan error, 1)
+	go func() {
+		nextExpected := -1
+		buffer := make(map[int][]byte)
+
+		for {
+			res := <-resultChan
+			if res.err != nil {
+				doneChan <- res.err
+				return
+			}
+			buffer[res.index] = res.data
+
+			for {
+				data, ok := buffer[nextExpected]
+				if !ok {
+					break
+				}
+
+				_, err := ffmpegStdin.Write(data)
+				if err != nil {
+					doneChan <- fmt.Errorf("ffmpeg write error: %s", err)
+					return
+				}
+
+				delete(buffer, nextExpected)
+				nextExpected++
+
+				if nextExpected == len(playlist.Segments) {
+					ffmpegStdin.Close()
+					doneChan <- nil
+					return
+				}
+			}
 		}
-		go func(i int, url string, sem *semaphore.Weighted) {
+	}()
+
+	go func() {
+		res, err := client.GetWithRetry(playlist.Init, 10)
+		if err != nil {
+			resultChan <- segmentResult{err: err}
+			return
+		}
+		data, _ := io.ReadAll(res.Body)
+		res.Body.Close()
+		resultChan <- segmentResult{index: -1, data: data}
+	}()
+
+	for i, url := range playlist.Segments {
+		sem.Acquire(context.Background(), 1)
+		go func(i int, url string) {
 			defer sem.Release(1)
 
-			if err := downloadFileRetry(client, url, fmt.Sprintf(".tmp/%d.m4v", i), 10, i); err != nil {
-				slog.Error("DownloadHLSVideo downloadFile", "error", err)
-				fmt.Printf("download segment %d / %d FAIL\n", i, len(playlist.Segments))
+			res, err := client.GetWithRetry(url, 10)
+			if err != nil {
+				resultChan <- segmentResult{err: err}
+				return
 			}
-			bar.Add(1)
-		}(i, url, sem)
+
+			data, _ := io.ReadAll(res.Body)
+			res.Body.Close()
+			resultChan <- segmentResult{index: i, data: data}
+			statusWriter.SegmentCounter.Add(1)
+		}(i, url)
 	}
 
-	if err := sem.Acquire(context.Background(), maxWorkers); err != nil {
-		slog.Error("Download", "error", err)
+	if err := <-doneChan; err != nil {
+		cmd.Process.Kill()
 		return err
 	}
 
-	// concat segments
-	target, err := os.OpenFile(".tmp/all.mp4", os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
-	if err != nil {
-		return err
-	}
-	defer target.Close()
-
-	// Wrap in a buffer (e.g., 1MB buffer)
-	writer := bufio.NewWriterSize(target, 1024*1024)
-
-	// Helper function to append files
-	appendFile := func(path string) error {
-		f, err := os.Open(path)
-		if err != nil {
-			return err
-		}
-		// Closures ensure the file is closed immediately after the copy
-		defer f.Close() 
-
-		_, err = io.Copy(writer, f)
-		return err
-	}
-
-	// 2. Copy Init Segment
-	if err := appendFile(".tmp/init.m4s"); err != nil {
-		slog.Error("Failed to copy init segment", "error", err)
-		return err
-	}
-
-	// 3. Copy Segments
-	bar = progressbar.Default(int64(len(playlist.Segments)), "concat")
-	for i := range playlist.Segments {
-		path := fmt.Sprintf(".tmp/%d.m4v", i)
-		if err := appendFile(path); err != nil {
-			slog.Error("Failed to copy segment", "index", i, "error", err)
-			return err
-		}
-		bar.Add(1)
-	}
-
-	// 4. IMPORTANT: Flush the buffer to disk before closing the underlying file
-	writer.Flush()
-
-	// remux
-	cmd := exec.Command("ffmpeg", "-i", ".tmp/all.mp4", "-c", "copy", "-y", outputName)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		slog.Error("DownloadHLSVideo cmd.Run", "error", err)
-		return err
-	}
-
-	return nil
+	return cmd.Wait()
 }
 
 func getPlaylistUrl(client *api.ChzzkClient, url string) (string, error) {
@@ -210,41 +250,6 @@ func parsePlaylistHLS(url string, hls string) (*playlist, error) {
 	}
 
 	return &playlist{initUrl, segments}, nil
-}
-
-func downloadFile(client *api.ChzzkClient, url string, path string) error {
-	res, err := client.Get(url)
-	if err != nil {
-		return err
-	}
-
-	file, err := os.Create(path)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	bytesWritten, err := io.Copy(file, res.Body)
-	if err != nil {
-		return err
-	}
-	defer res.Body.Close()
-
-	slog.Debug("downloadFile", "path", path, "bytesWritten", bytesWritten)
-	return nil
-}
-
-func downloadFileRetry(client *api.ChzzkClient, url string, path string, retry int, index int) error {
-	var err error
-	for retry > 0 {
-		err = downloadFile(client, url, path)
-		if err == nil {
-			return nil
-		}
-		slog.Error("downloadFileRetry downloadFile error retry", "left", retry, "index", index)
-		retry--
-	}
-	return err
 }
 
 func UrlJoin(base string, part string) (string, error) {

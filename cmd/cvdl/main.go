@@ -141,7 +141,9 @@ func HandleDownload(client *api.ChzzkClient, db *db.DB) {
 		slog.Error("HandleDownload DownloadVideo", "error", err)
 		return
 	}
-	if err = db.RecordDownload(videoNo, info.Title); err != nil {
+
+	title := utils.SanitizeFileName(fmt.Sprintf("%s %s [%d].mp4", info.Date, info.Title, info.VideoNo))
+	if err = db.RecordDownload(videoNo, title); err != nil {
 		slog.Error("HandleDowlnoad db.RecordDownload", "error", err)
 		return
 	}
@@ -162,13 +164,15 @@ func HandleAll(client *api.ChzzkClient, db *db.DB) {
 
 	for _, video := range videos {
 		chk, err := db.CheckDownload(video.VideoNo)
-		if  err == nil && chk == false {
+		if err == nil && chk == false {
 			info, err := downloader.DownloadVideo(client, video.VideoNo)
 			if err != nil {
 				slog.Error("HandleDownload DownloadVideo", "error", err)
 				return
 			}
-			if err = db.RecordDownload(video.VideoNo, info.Title); err != nil {
+
+			title := utils.SanitizeFileName(fmt.Sprintf("%s %s [%d].mp4", info.Date, info.Title, info.VideoNo))
+			if err = db.RecordDownload(video.VideoNo, title); err != nil {
 				slog.Error("HandleDowlnoad db.RecordDownload", "error", err)
 				return
 			}
